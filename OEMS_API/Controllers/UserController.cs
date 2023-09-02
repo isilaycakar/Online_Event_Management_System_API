@@ -53,8 +53,8 @@ namespace OEMS_API.Controllers
         [HttpGet("filterEvents")]
         public IActionResult FilterEvents(string? city, string? category)
         {
-           var filteredEvents = _context.Events
-                .Where(e => e.Status == true);
+            var filteredEvents = _context.Events
+                 .Where(e => e.Status == true);
 
             if (!string.IsNullOrEmpty(city))
             {
@@ -89,7 +89,7 @@ namespace OEMS_API.Controllers
             {
                 return NotFound("Filtrelemeye uygun sonuç bulunamadı.");
             }
-            
+
             return Ok(eventList);
         }
 
@@ -99,25 +99,53 @@ namespace OEMS_API.Controllers
             var user = User.Identity.Name;
             var userId = _context.AppUsers.Where(x => x.UserName == user).Select(x => x.Id).FirstOrDefault();
 
-            int capacity = _context.Events.Where(x=>x.EventID == eventId).Select(x=>x.Capacity).FirstOrDefault();
-            int currentCapacity = _context.EventParticipants.Where(x=>x.EventId == eventId).Count();
-           
-            if (currentCapacity < capacity)
+            var eventToJoin = _context.Events.SingleOrDefault(x => x.EventID == eventId);
+
+            if (eventToJoin != null && eventToJoin.Status)
             {
-                var participation = new EventParticipant
+                DateTime eventStartDate = eventToJoin.Date;
+                if (eventStartDate <= DateTime.Now)
                 {
-                    UserID = userId,
-                    EventId = eventId
-                };
+                    return BadRequest("Etkinlik tarihi geçtiği için katılamazsınız.");
+                }
+                int capacity = eventToJoin.Capacity;
+                int currentCapacity = _context.EventParticipants.Count(x => x.EventId == eventId);
 
-                _context.EventParticipants.Add(participation);
-                _context.SaveChanges();
+                if (currentCapacity < capacity)
+                {
+                    bool hasTicket = _context.Events.Where(x => x.EventID == eventId).Select(x => x.Ticket).FirstOrDefault();
+                    if (hasTicket == true)
+                    {
+                        var ticketCompanyIds = _context.TicketCompanyEvents
+                            .Where(x => x.EventId == eventId)
+                            .Select(x => x.CompanyId)
+                            .ToList();
+                        var ticketCompanies = _context.TicketCompanies
+                            .Where(x => ticketCompanyIds.Contains(x.CompanyID)).Select(x => new
+                            {
+                                CompanyName = x.CompanyName,
+                                Url = x.Url
+                            })
+                           .ToList();
+                        return Ok(ticketCompanies);
+                    }
 
-                return Ok("Etkinliğe katıldınız.");
+                    var participation = new EventParticipant
+                    {
+                        UserID = userId,
+                        EventId = eventId
+                    };
+
+                    _context.EventParticipants.Add(participation);
+                    _context.SaveChanges();
+
+                    return Ok("Etkinliğe katıldınız.");
+                }
+
+                return BadRequest("Etkinlik kontenjanı dolu. Katılamazsınız.");
             }
 
-            return BadRequest("Etkinlik kontenjanı dolu. Katılamazsınız.");
-
+            return BadRequest("Etkinlik mevcut değil veya kapalı.");
 
         }
 

@@ -110,35 +110,40 @@ namespace OEMS_API.Controllers
         [HttpGet("info")]
         public IActionResult GetEventInfo(int eventId, string format)
         {
-            var user = HttpContext.User;
+            var companyId = _context.TicketCompanyEvents.Where(x => x.EventId == eventId).Select(x => x.CompanyId).FirstOrDefault();
 
             var eventInfo = _context.Events.FirstOrDefault(e => e.EventID == eventId);
             if (eventInfo == null)
             {
                 return NotFound();
             }
-            var companyRole = _context.TicketCompanies.Select(t => t.Role).FirstOrDefault();
+            var userRole = _context.TicketCompanies
+               .Where(tc => tc.CompanyID == companyId)
+               .Select(tc => tc.Role)
+               .FirstOrDefault();
 
-            if (companyRole != "Company")
+            if (userRole == "Company")
             {
-                return Forbid();
-            }
+                if (format == "json")
+                {
+                    return Ok(eventInfo);
+                }
+                else if (format == "xml")
+                {
 
-            if (format == "json")
-            {
-                return Ok(eventInfo);
-            }
-            else if (format == "xml")
-            {
-                // XML formatında dönüşüm yapın ve cevap olarak verin
-                var xmlSerializer = new XmlSerializer(typeof(Event));
-                var stringWriter = new StringWriter();
-                xmlSerializer.Serialize(stringWriter, eventInfo);
-                return Content(stringWriter.ToString(), "application/xml");
+                    var xmlSerializer = new XmlSerializer(typeof(Event));
+                    var stringWriter = new StringWriter();
+                    xmlSerializer.Serialize(stringWriter, eventInfo);
+                    return Content(stringWriter.ToString(), "application/xml");
+                }
+                else
+                {
+                    return BadRequest("Geçersiz format");
+                }
             }
             else
             {
-                return BadRequest("Geçersiz format"); // Desteklenmeyen format isteği
+                return Forbid();
             }
         }
     }

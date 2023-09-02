@@ -38,7 +38,8 @@ namespace OEMS_API.Controllers
             var profileModel = new ProfileModel
             {
                 Email = user.Email,
-                NameSurname = user.NameSurname
+                NameSurname = user.NameSurname,
+                UserName = user.UserName
             };
 
             return Ok(profileModel);

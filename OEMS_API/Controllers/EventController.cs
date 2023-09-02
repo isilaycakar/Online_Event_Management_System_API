@@ -150,11 +150,51 @@ namespace OEMS_API.Controllers
             existingEvent.Title = model.Title;
             existingEvent.Description = model.Description;
             existingEvent.Location = model.Location;
-            existingEvent.Capacity = model.Capacity;
+            existingEvent.Capacity = (int)model.Capacity;
 
+            if (model.CityID.HasValue)
+            {
+               
+                var cityExists = await _context.Cities.AnyAsync(c => c.CityID == model.CityID.Value);
+                if (!cityExists)
+                {
+                    return BadRequest("Geçersiz CityID. Şehir bulunamadı.");
+                }
+
+                existingEvent.CityID = model.CityID.Value;
+            }
             await _context.SaveChangesAsync();
 
             return Ok("Etkinlik başarıyla güncellendi.");
+        }
+
+        [HttpDelete("{eventId}")]
+        public async Task<IActionResult> CancelEvent(int eventId)
+        {
+            var user = User.Identity.Name;
+            var userId = _context.AppUsers.Where(x => x.UserName == user).Select(x => x.Id).FirstOrDefault();
+
+            var existingEvent = await _context.Events.FirstOrDefaultAsync(e => e.EventID == eventId && e.UserID == userId);
+
+            if (existingEvent == null)
+            {
+                return NotFound("Etkinlik bulunamadı veya iptal yetkiniz yok.");
+            }
+
+            var today = DateTime.Now;
+            var fiveDaysBeforeEventDate = existingEvent.CloseDate.AddDays(-5);
+
+            if (today >= fiveDaysBeforeEventDate)
+            {
+                return BadRequest("Etkinliği iptal etmek için süre doldu.");
+            }
+
+            
+            _context.Events.Remove(existingEvent);
+
+            await _context.SaveChangesAsync();
+
+            return Ok("Etkinlik başarıyla iptal edildi.");
         }
 
         [HttpGet]
@@ -201,23 +241,7 @@ namespace OEMS_API.Controllers
         }
 
 
-        [HttpPatch("approve/{eventId}")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> ApproveEvent(int eventId)
-        {
-            var existingEvent = await _context.Events.FindAsync(eventId);
-
-            if (existingEvent == null)
-            {
-                return NotFound("Etkinlik bulunamadı.");
-            }
-
-            existingEvent.Status = true;
-
-            await _context.SaveChangesAsync();
-
-            return Ok("Etkinlik onaylandı.");
-        }
+       
     }
 }
 

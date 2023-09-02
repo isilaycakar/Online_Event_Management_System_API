@@ -132,5 +132,47 @@ namespace OEMS_API.Controllers
 
             return Ok("Şehir başarıyla silindi.");
         }
+
+        [HttpGet]
+        public IActionResult GetEvents()
+        {
+            var statusFalseEvents = _context.Events
+                .Where(e => e.Status == false)
+                .Select(item => new
+                {
+                    EventID = item.EventID,
+                    Title = item.Title,
+                    Description = item.Description,
+                    Date = item.Date,
+                    CloseDate = item.CloseDate,
+                    Location = item.Location,
+                    Capacity = item.Capacity,
+                    Ticket = item.Ticket,
+                    Price = item.Price,
+                    CategoryID = item.CategoryID,
+                    CityID = item.CityID,
+                    Status = item.Status
+                })
+                .ToList();
+
+            return Ok(statusFalseEvents);
+        }
+
+        [HttpPatch("{eventId}")]
+        public async Task<IActionResult> ApproveEvent(int eventId)
+        {
+            var existingEvent = await _context.Events.FindAsync(eventId);
+
+            if (existingEvent == null)
+            {
+                return NotFound("Etkinlik bulunamadı.");
+            }
+
+            existingEvent.Status = true;
+
+            await _context.SaveChangesAsync();
+
+            return Ok("Etkinlik onaylandı.");
+        }
     }
 }
